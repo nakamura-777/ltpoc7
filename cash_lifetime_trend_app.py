@@ -44,16 +44,12 @@ monthly_tp = cash_productivity * 30
 st.header("📈 3. 資金トレンド分析")
 
 trend_df = monthly_data.copy()
-trend_df["月間支出"] = trend_df["期首現金残高（万円）"] - trend_df["期末現金残高（万円）"]
-trend_df["月間キャッシュ創出（TP起点）"] = monthly_tp
-trend_df["月間純収支"] = trend_df["月間キャッシュ創出（TP起点）"] - trend_df["月間支出"]
-trend_df["翌月想定残高"] = trend_df["期末現金残高（万円）"] + trend_df["月間純収支"]
+trend_df["月間収支"] = trend_df["期末現金残高（万円）"] - trend_df["期首現金残高（万円）"]
 
 st.dataframe(trend_df, use_container_width=True)
 
 fig, ax = plt.subplots()
-ax.plot(trend_df["月"], trend_df["期末現金残高（万円）"], marker='o', label="実績")
-ax.plot(trend_df["月"], trend_df["翌月想定残高"], marker='x', linestyle='--', label="翌月予測")
+ax.plot(trend_df["月"], trend_df["期末現金残高（万円）"], marker='o', label="期末残高（実績）")
 ax.axhline(0, color='red', linestyle='--', label="資金枯渇ライン")
 ax.set_xlabel("月")
 ax.set_ylabel("現金残高（万円）")
@@ -77,7 +73,7 @@ improved_lt = weighted_lt * (1 - lt_rate / 100)
 improved_productivity = improved_tp / improved_lt if improved_lt > 0 else 0
 improved_monthly_tp = improved_productivity * 30
 latest_cash = trend_df["期末現金残高（万円）"].iloc[-1] + cash_injection
-latest_outflow = trend_df["月間支出"].iloc[-1]
+latest_outflow = -trend_df["月間収支"].iloc[-1]
 net_change = improved_monthly_tp - latest_outflow
 
 if net_change < 0:
@@ -92,7 +88,7 @@ st.markdown(f"""
 **改善後TP**：{improved_tp:.1f} 万円  
 **改善後LT**：{improved_lt:.1f} 日  
 **改善後生産性（TP/LT）**：{improved_productivity:.2f} 万円／日  
-**月間純収支**：{net_change:.2f} 万円  
+**月間純収支（改善後）**：{net_change:.2f} 万円  
 **資金寿命（見込）**：{survival_msg}
 """)
 
