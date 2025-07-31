@@ -33,11 +33,12 @@ product_data = st.data_editor(
     use_container_width=True
 )
 
-# --- 加重平均計算 ---
+# --- 各製品の TP/LT を平均 ---
 valid_products = product_data.dropna()
+valid_products["TP_per_LT"] = valid_products["TP（万円）"] / valid_products["LT（日）"]
+cash_productivity = valid_products["TP_per_LT"].mean() if not valid_products.empty else 0
 total_tp = valid_products["TP（万円）"].sum()
-weighted_lt = (valid_products["TP（万円）"] * valid_products["LT（日）"]).sum() / total_tp if total_tp > 0 else 0
-cash_productivity = total_tp / weighted_lt if weighted_lt > 0 else 0
+daily_tp_from_total = total_tp / 30 if total_tp > 0 else 0
 monthly_tp = cash_productivity * 30
 
 # --- 3. 資金トレンド分析 ---
@@ -68,10 +69,14 @@ with col2:
 with col3:
     cash_injection = st.number_input("現金注入額（万円）", min_value=0.0, value=0.0)
 
-improved_tp = total_tp * (1 + tp_rate / 100)
-improved_lt = weighted_lt * (1 - lt_rate / 100)
-improved_productivity = improved_tp / improved_lt if improved_lt > 0 else 0
+# 改善後計算
+improved_products = valid_products.copy()
+improved_products["TP（万円）"] *= (1 + tp_rate / 100)
+improved_products["LT（日）"] *= (1 - lt_rate / 100)
+improved_products["TP_per_LT"] = improved_products["TP（万円）"] / improved_products["LT（日）"]
+improved_productivity = improved_products["TP_per_LT"].mean() if not improved_products.empty else 0
 improved_monthly_tp = improved_productivity * 30
+
 latest_cash = trend_df["期末現金残高（万円）"].iloc[-1] + cash_injection
 latest_outflow = -trend_df["月間収支"].iloc[-1]
 net_change = improved_monthly_tp - latest_outflow
@@ -84,10 +89,11 @@ elif net_change == 0:
 else:
     survival_msg = "🟢 黒字化、資金は増加傾向"
 
-st.markdown(f"""
-**改善後TP**：{improved_tp:.1f} 万円  
-**改善後LT**：{improved_lt:.1f} 日  
-**改善後生産性（TP/LT）**：{improved_productivity:.2f} 万円／日  
+st.dataframe(valid_products, use_container_width=True)
+
+st.markdown(f"""\n**製品別 TP/LT（万円/日）** を表に表示\n\n**TP 合計**：{total_tp:.2f} 万円\n**TP 合計からの1日あたり TP**：{daily_tp_from_total:.2f} 万円/日\n
+**平均キャッシュ生産性（TP/LT）**：{cash_productivity:.2f} 万円／日  
+**改善後生産性**：{improved_productivity:.2f} 万円／日  
 **月間純収支（改善後）**：{net_change:.2f} 万円  
 **資金寿命（見込）**：{survival_msg}
 """)
@@ -104,7 +110,7 @@ def to_excel(df_dict):
 
 excel_binary = to_excel({
     "月別履歴": trend_df,
-    "製品別TP_LT": product_data
+    "製品別TP_LT": valid_products
 })
 
 st.download_button(
